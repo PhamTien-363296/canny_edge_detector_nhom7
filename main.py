@@ -1,8 +1,11 @@
 import tkinter as tk
 import cv2
 from PIL import Image, ImageTk
+import numpy as np
 from tkinter import filedialog as fd
+from scipy.signal import convolve2d
 
+photogaussian=None
 
 def main():
     main = tk.Tk()
@@ -26,8 +29,30 @@ def main():
             img = img.resize((400, 300))
             img_tk = ImageTk.PhotoImage(img)
 
-            labelImage11.config(image=img_tk)
-            labelImage11.image = img_tk
+            gray = img.convert('L')
+            gray_np = np.array(gray)
+            canny(gray_np)
+
+            labelImage1_input.config(image=img_tk)
+            labelImage1_input.image = img_tk
+
+            #Bước 1
+            labelImage1_input1.config(image=img_tk)
+            labelImage1_input1.image = img_tk
+            labelImage2_output1.config(image=photogaussian)
+            labelImage2_output1.image = photogaussian
+
+            #Bước 2
+            labelImage1_input2.config(image=photogaussian)
+            labelImage1_input2.image = photogaussian
+
+            #Bước 3
+            #labelImage1_input3.config(image=img_tk)
+            #labelImage1_input3.image = img_tk
+
+            #Bước 4
+            #labelImage1_input4.config(image=img_tk)
+            #labelImage1_input4.image = img_tk
 
             text1.delete('1.0', tk.END)
             text1.insert(tk.END, img_path)
@@ -40,6 +65,29 @@ def main():
         labelCamera11.imgtk = imgtk
         labelCamera11.configure(image=imgtk)
         labelCamera11.after(20, showCamera)
+
+    def canny(img):
+        #Bước 1
+        gaussian_output = gaussian_smoothing(img)
+        gaussian_image = Image.fromarray(np.uint8(gaussian_output))
+        global photogaussian
+        photogaussian = ImageTk.PhotoImage(gaussian_image)
+
+    #Bước 1: Lọc Gaussian làm mờ và mịn ảnh
+    def gaussian_smoothing(img, kernel_size=7, sigma=1):
+        m, n = kernel_size, kernel_size
+        gaussian_kernel = np.zeros((m, n))
+        m = m // 2
+        n = n // 2
+        for x in range(-m, m + 1):
+            for y in range(-n, n + 1):
+                x1 = sigma * (2 * np.pi)
+                x2 = np.exp(-(x ** 2 + y ** 2) / (2 * sigma ** 2))
+                gaussian_kernel[x + m, y + n] = (1 / x1) * x2
+        gaussian_kernel /= np.sum(gaussian_kernel)
+
+        #thực hiện phép tích chập 2 chiều
+        return convolve2d(img, gaussian_kernel, mode='same', boundary='symm')
 
     frame1 = tk.Frame(main, width=1000, height=600, bg='#f0f0f0')
     frame2 = tk.Frame(main, width=1000, height=600, bg='#f0f0f0')
@@ -57,6 +105,10 @@ def main():
     img = img.resize((1000, 600))
     photo = ImageTk.PhotoImage(img)
 
+    imglg = Image.open("Hoc_vien_Hang_khongVN.PNG")
+    imglg = imglg.resize((80, 64))
+    photolg = ImageTk.PhotoImage(imglg)
+
     imgright_icon = Image.open("icon_right.png")
     imgright_icon = imgright_icon.resize((30, 30))
     right_icon = ImageTk.PhotoImage(imgright_icon)
@@ -64,6 +116,9 @@ def main():
     # Thiết kế Frame 1
     labelImg = tk.Label(frame1, image=photo)
     labelImg.place(relwidth=1, relheight=1)
+
+    labelImglg = tk.Label(frame1, image=photolg, bg='#BFDDE5')
+    labelImglg.place(relx=0, rely=0, anchor='nw')
 
     label1 = tk.Label(frame1, text="Tiểu luận về Xử lý Ảnh và Thị giác Máy tính", font=('Arial', 20, 'bold'), bg='#c5d1dd', fg='#007865')
     label1.place(relx=0.5, rely=0.4, anchor='center')
@@ -77,6 +132,9 @@ def main():
     # Thiết kế Frame 2
     labelImg = tk.Label(frame2, image=photo)
     labelImg.place(relwidth=1, relheight=1)
+
+    labelImglg = tk.Label(frame2, image=photolg, bg='#BFDDE5')
+    labelImglg.place(relx=0, rely=0, anchor='nw')
 
     label1 = tk.Label(frame2, text="Bạn muốn chỉnh sửa nhận dạng đường biên bằng cách nào?", font=('Arial', 20, 'bold'), bg='#c5d1dd', fg='#007865')
     label1.place(relx=0.5, rely=0.45, anchor='center')
@@ -113,8 +171,8 @@ def main():
     labelImage1.place(relx=0.25, rely=0.35, anchor='center')
     frameImage1 = tk.Frame(frame3, width=400, height=300, bg='#fff')
     frameImage1.place(relx=0.25, rely=0.67, anchor='center')
-    labelImage11 = tk.Label(frameImage1)
-    labelImage11.place(relwidth=1, relheight=1)
+    labelImage1_input = tk.Label(frameImage1)
+    labelImage1_input.place(relwidth=1, relheight=1)
 
     labelImage2 = tk.Label(frame3, text="Hình đã chỉnh", font=('Arial', 16, 'bold'), bg='#c8d3e0', fg='#007865')
     labelImage2.place(relx=0.75, rely=0.35, anchor='center')
@@ -159,24 +217,34 @@ def main():
     label1 = tk.Label(frame5, text="BƯỚC 1", font=('Arial', 20, 'bold'), bg='#CFE1E4', fg='#007865')
     label1.place(relx=0.5, rely=0.15, anchor='center')
 
+    label1 = tk.Label(frame5, text="Làm mờ và mịn ảnh bằng bộ lọc Gaussian", font=('Arial', 17, 'bold'), bg='#D3DCE7', fg='#296958')
+    label1.place(relx=0.5, rely=0.23, anchor='center')
+
+    label2 = tk.Label(
+        frame5,
+        text="Bước này nhằm giảm thiểu nhiễu và làm nổi bật các cạnh quan trọng. Phân phối chuẩn Gaussian, giúp làm mượt ảnh, từ đó nâng cao độ chính xác trong phát hiện cạnh.",
+        font=('Arial', 15, 'normal'),bg='#C4D4DD',fg='#296958',wraplength=620,justify='center'
+    )
+    label2.place(relx=0.2, rely=0.3, anchor='nw')
+
     button1 = tk.Button(frame5, text="Quay lại", command=lambda: show_frame(frame3), bg='#fff', fg='#007865', font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
 
-    button2 = tk.Button(frame5, text="Bước tiếp theo", command=lambda: show_frame(frame6), bg='#fff', fg='#007865', font=('Arial', 12, 'normal'), width=13, height=1, relief='flat', borderwidth=0)
+    button2 = tk.Button(frame5, text="Bước tiếp theo", command=lambda: show_frame(frame6), bg='#007865', fg='#fff', font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.84, rely=0.3, anchor='nw')
 
     frameImage1 = tk.Frame(frame5, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage11 = tk.Label(frameImage1)
-    labelImage11.place(relwidth=1, relheight=1)
+    labelImage1_input1 = tk.Label(frameImage1)
+    labelImage1_input1.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame5, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
 
     frameImage2 = tk.Frame(frame5, width=350, height=250, bg='#fff')
     frameImage2.place(relx=0.55,rely=0.53, anchor='nw')
-    labelImage22 = tk.Label(frameImage2)
-    labelImage22.place(relwidth=1, relheight=1)
+    labelImage2_output1 = tk.Label(frameImage2)
+    labelImage2_output1.place(relwidth=1, relheight=1)
 
     # Thiết kế Frame 6
     labelImg = tk.Label(frame6, image=photo)
@@ -193,17 +261,17 @@ def main():
                         font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
 
-    button2 = tk.Button(frame6, text="Bước tiếp theo", command=lambda: show_frame(frame7), bg='#fff', fg='#007865',
-                        font=('Arial', 12, 'normal'), width=13, height=1, relief='flat', borderwidth=0)
+    button2 = tk.Button(frame6, text="Bước tiếp theo", command=lambda: show_frame(frame7), bg='#007865', fg='#fff',
+                        font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.84, rely=0.3, anchor='nw')
-    button2 = tk.Button(frame6, text="Bước trước", command=lambda: show_frame(frame5), bg='#fff', fg='#007865',
-                        font=('Arial', 12, 'normal'), width=13, height=1, relief='flat', borderwidth=0)
+    button2 = tk.Button(frame6, text="Bước trước", command=lambda: show_frame(frame5), bg='#007865', fg='#fff',
+                        font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.04, rely=0.3, anchor='nw')
 
     frameImage1 = tk.Frame(frame6, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage11 = tk.Label(frameImage1)
-    labelImage11.place(relwidth=1, relheight=1)
+    labelImage1_input2 = tk.Label(frameImage1)
+    labelImage1_input2.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame6, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
@@ -228,17 +296,17 @@ def main():
                         font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
 
-    button2 = tk.Button(frame7, text="Bước tiếp theo", command=lambda: show_frame(frame8), bg='#fff', fg='#007865',
-                        font=('Arial', 12, 'normal'), width=13, height=1, relief='flat', borderwidth=0)
+    button2 = tk.Button(frame7, text="Bước tiếp theo", command=lambda: show_frame(frame8), bg='#007865', fg='#fff',
+                        font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.84, rely=0.3, anchor='nw')
-    button2 = tk.Button(frame7, text="Bước trước", command=lambda: show_frame(frame6), bg='#fff', fg='#007865',
-                        font=('Arial', 12, 'normal'), width=13, height=1, relief='flat', borderwidth=0)
+    button2 = tk.Button(frame7, text="Bước trước", command=lambda: show_frame(frame6), bg='#007865', fg='#fff',
+                        font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.04, rely=0.3, anchor='nw')
 
     frameImage1 = tk.Frame(frame7, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage11 = tk.Label(frameImage1)
-    labelImage11.place(relwidth=1, relheight=1)
+    labelImage1_input3 = tk.Label(frameImage1)
+    labelImage1_input3.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame7, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
@@ -263,14 +331,14 @@ def main():
                         font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
 
-    button2 = tk.Button(frame8, text="Bước trước", command=lambda: show_frame(frame7), bg='#fff', fg='#007865',
-                        font=('Arial', 12, 'normal'), width=13, height=1, relief='flat', borderwidth=0)
+    button2 = tk.Button(frame8, text="Bước trước", command=lambda: show_frame(frame7), bg='#007865', fg='#fff',
+                        font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.04, rely=0.3, anchor='nw')
 
     frameImage1 = tk.Frame(frame8, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage11 = tk.Label(frameImage1)
-    labelImage11.place(relwidth=1, relheight=1)
+    labelImage1_input4 = tk.Label(frameImage1)
+    labelImage1_input4.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame8, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
