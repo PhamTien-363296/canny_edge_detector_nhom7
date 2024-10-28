@@ -103,6 +103,19 @@ def main():
         labelImage2_output1.config(image=photogaussian)
         labelImage2_output1.image = photogaussian
 
+        #Bước 2
+        gradient_magnitude, gradient_angle = gradient_operation(gaussian_output)
+
+        #Xử lý hình ảnh hiển thị
+        gradient_magnitude_image = Image.fromarray(np.uint8(gradient_magnitude))
+        photogradient_magnitude = ImageTk.PhotoImage(gradient_magnitude_image)
+
+        labelImage2_input2.config(image=photogaussian)
+        labelImage2_input2.image = photogaussian
+
+        labelImage3_output2.config(image=photogradient_magnitude)
+        labelImage3_output2.image = photogradient_magnitude
+
     #Bước 1:
     def gaussian_smoothing(img, kernel_size, sigma):
         m, n = kernel_size, kernel_size
@@ -117,6 +130,20 @@ def main():
         gaussian_kernel /= np.sum(gaussian_kernel)
 
         return convolve2d(img, gaussian_kernel, mode='same', boundary='symm')
+
+    #Bước 2
+    def gradient_operation(smoothed_image):
+        sobel_gx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+        sobel_gy = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
+
+        horizontal_gradient = convolve2d(smoothed_image, sobel_gx)
+        vertical_gradient = convolve2d(smoothed_image, sobel_gy)
+
+        gradient_magnitude = np.sqrt(horizontal_gradient ** 2 + vertical_gradient ** 2)
+        gradient_magnitude = (gradient_magnitude / np.max(gradient_magnitude)) * 255 # chuan hoa
+        gradient_angle = np.degrees(np.arctan2(vertical_gradient, horizontal_gradient))
+
+        return gradient_magnitude, gradient_angle
 
     #Theo dõi và gọi hàm
     kernel_size_var.trace_add("write", canny_image)
@@ -333,6 +360,18 @@ def main():
     label1 = tk.Label(frame6, text="BƯỚC 2", font=('Arial', 20, 'bold'), bg='#CFE1E4', fg='#007865')
     label1.place(relx=0.5, rely=0.15, anchor='center')
 
+    label1 = tk.Label(frame6, text=" Tính toán Gradient với bộ lọc Sobel", font=('Arial', 17, 'bold'), bg='#D3DCE7',
+                      fg='#296958')
+    label1.place(relx=0.5, rely=0.23, anchor='center')
+
+    label2 = tk.Label(
+        frame6,
+        text="Bước này tạo ra ảnh gradient,thể hiện độ lớn và hướng của các cạnh trong ảnh đồng thời hỗ trợ bước 3 trong quá trình phát hiện cạnh.",
+        font=('Arial', 15, 'normal'),bg='#C4D4DD',fg='#296958',wraplength=620,justify='center'
+    )
+    label2.place(relx=0.2, rely=0.3, anchor='nw')
+
+
     button1 = tk.Button(frame6, text="Quay lại", command=lambda: show_frame(frame3), bg='#fff', fg='#007865',
                         font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
@@ -346,16 +385,16 @@ def main():
 
     frameImage1 = tk.Frame(frame6, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage1_input2 = tk.Label(frameImage1)
-    labelImage1_input2.place(relwidth=1, relheight=1)
+    labelImage2_input2 = tk.Label(frameImage1)
+    labelImage2_input2.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame6, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
 
     frameImage2 = tk.Frame(frame6, width=350, height=250, bg='#fff')
     frameImage2.place(relx=0.55, rely=0.53, anchor='nw')
-    labelImage2_output2 = tk.Label(frameImage2)
-    labelImage2_output2.place(relwidth=1, relheight=1)
+    labelImage3_output2 = tk.Label(frameImage2)
+    labelImage3_output2.place(relwidth=1, relheight=1)
 
     # Thiết kế Frame 7
     labelImg = tk.Label(frame7, image=photo)
