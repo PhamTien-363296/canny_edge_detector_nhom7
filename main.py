@@ -63,10 +63,10 @@ def main():
 
             cam = Image.fromarray(edges)
             camtk = ImageTk.PhotoImage(cam)
-            labelCamera11.config(image=camtk)
-            labelCamera11.image = camtk
+            labelCamera22.config(image=camtk)
+            labelCamera22.image = camtk
 
-            labelCamera11.after(10, update_frame)
+            labelCamera22.after(10, update_frame)
 
         update_frame()
 
@@ -298,17 +298,12 @@ def main():
                         font=('Arial', 13, 'bold'), relief='flat', borderwidth=0, padx=7)
     button4.place(relx=0.77, rely=0.2, anchor='center')
 
-    labelCamera1 = tk.Label(frame4, text="Camera của bạn", font=('Arial', 16, 'bold'), bg='#c5d1dd', fg='#007865')
-    labelCamera1.place(relx=0.26, rely=0.35, anchor='center')
-    frameCamera1 = tk.Frame(frame4, width=400, height=300, bg='#fff')
-    frameCamera1.place(relx=0.25, rely=0.67, anchor='center')
-    labelCamera11 = tk.Label(frameCamera1)
-    labelCamera11.place(relwidth=1, relheight=1)
-
     labelCamera2 = tk.Label(frame4, text="Camera đã chỉnh", font=('Arial', 16, 'bold'), bg='#c8d3e0', fg='#007865')
-    labelCamera2.place(relx=0.73, rely=0.35, anchor='center')
-    frameCamera2 = tk.Frame(frame4, width=400, height=300, bg='#fff')
-    frameCamera2.place(relx=0.75,rely=0.67, anchor='center')
+    labelCamera2.place(relx=0.5, rely=0.3, anchor='center')
+    frameCamera2 = tk.Frame(frame4, width=500, height=350, bg='#fff')
+    frameCamera2.place(relx=0.5,rely=0.65, anchor='center')
+    labelCamera22 = tk.Label(frameCamera2)
+    labelCamera22.place(relwidth=1, relheight=1)
 
     # Thiết kế Frame 5
     labelImg = tk.Label(frame5, image=photo)
