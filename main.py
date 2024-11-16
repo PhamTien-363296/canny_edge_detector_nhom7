@@ -83,6 +83,7 @@ def main():
 
         gaussian_output = gaussian_smoothing(gray, kernel_size=kernel_size, sigma=sigma)
 
+
         return gaussian_output
 
     def canny_image(*args):
