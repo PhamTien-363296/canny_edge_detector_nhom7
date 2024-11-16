@@ -1,9 +1,13 @@
 import tkinter as tk
+from cProfile import label
+
 import cv2
 from PIL import Image, ImageTk
 import numpy as np
 from tkinter import filedialog as fd, messagebox
 from scipy.signal import convolve2d
+from tensorboard.plugins.image.summary import image
+
 
 def main():
     main = tk.Tk()
@@ -83,8 +87,13 @@ def main():
 
         gaussian_output = gaussian_smoothing(gray, kernel_size=kernel_size, sigma=sigma)
 
+        gradient_magnitude, gradient_angle = gradient_operation(gaussian_output)
 
-        return gaussian_output
+        suppressed_arr = non_maxima_suppression(gradient_magnitude, gradient_angle)
+
+        output_image = double_thresholding(suppressed_arr)
+
+        return output_image
 
     def canny_image(*args):
         # Bước 1:
@@ -117,6 +126,35 @@ def main():
         labelImage3_output2.config(image=photogradient_magnitude)
         labelImage3_output2.image = photogradient_magnitude
 
+        #Bước 3
+        suppressed_arr =  non_maxima_suppression(gradient_magnitude, gradient_angle)
+
+        # Xử lý hình ảnh hiển thị
+        non_maxima_image = Image.fromarray(np.uint8(suppressed_arr))
+        photonon_maxima = ImageTk.PhotoImage(non_maxima_image)
+
+        labelImage3_input3.config(image=photogradient_magnitude)
+        labelImage3_input3.image = photogradient_magnitude
+
+        labelImage4_output3.config(image=photonon_maxima)
+        labelImage4_output3.image = photonon_maxima
+
+        #Bước 4
+        output_image = double_thresholding(suppressed_arr)
+
+        #Xử lý hình ảnh hiển thị
+        double_thresholding_image = Image.fromarray(np.uint8(output_image))
+        photo_double_thresholding = ImageTk.PhotoImage(double_thresholding_image)
+
+        labelImage4_input4.config(image=photonon_maxima)
+        labelImage4_input4.image = photonon_maxima
+
+        labelImage5_output4.config(image=photo_double_thresholding)
+        labelImage5_output4.image = photo_double_thresholding
+
+        labelImage0_output0.config(image=photo_double_thresholding)
+        labelImage0_output0.image = photo_double_thresholding
+
     #Bước 1:
     def gaussian_smoothing(img, kernel_size, sigma):
         m, n = kernel_size, kernel_size
@@ -145,6 +183,61 @@ def main():
         gradient_angle = np.degrees(np.arctan2(vertical_gradient, horizontal_gradient))
 
         return gradient_magnitude, gradient_angle
+
+    def non_maxima_suppression(gradient_mag, gradient_angle):
+        image_height, image_width = gradient_mag.shape
+        suppressed_arr = np.zeros((image_height, image_width), dtype='int')
+
+        for i in range(1, image_height - 1):
+            for j in range(1, image_width - 1):
+                angle = gradient_angle[i, j] % 180
+                q, r = 255, 255  # Initialize variables for neighboring pixels
+
+                # 0 degrees
+                if (0 <= angle < 22.5) or (157.5 <= angle <= 180):
+                    q = gradient_mag[i, j + 1]
+                    r = gradient_mag[i, j - 1]
+                # 45 degrees
+                elif (22.5 <= angle < 67.5):
+                    q = gradient_mag[i + 1, j - 1]
+                    r = gradient_mag[i - 1, j + 1]
+                # 90 degrees
+                elif (67.5 <= angle < 112.5):
+                    q = gradient_mag[i + 1, j]
+                    r = gradient_mag[i - 1, j]
+                # 135 degrees
+                elif (112.5 <= angle < 157.5):
+                    q = gradient_mag[i - 1, j - 1]
+                    r = gradient_mag[i + 1, j + 1]
+
+                if (gradient_mag[i, j] >= q) and (gradient_mag[i, j] >= r):
+                    suppressed_arr[i, j] = gradient_mag[i, j]
+
+        return suppressed_arr
+
+    def double_thresholding(suppressed_image):
+
+        high_threshold = np.percentile(suppressed_image, 95)
+        low_threshold = high_threshold * 0.4  # Giảm ngưỡng thấp
+
+        output_image = np.zeros_like(suppressed_image)
+        strong_edges = suppressed_image >= high_threshold
+        weak_edges = (suppressed_image >= low_threshold) & (suppressed_image < high_threshold)
+
+        output_image[strong_edges] = 255
+
+        # Hysteresis
+        for i in range(1, suppressed_image.shape[0] - 1):
+            for j in range(1, suppressed_image.shape[1] - 1):
+                if weak_edges[i, j]:
+                    if ((strong_edges[i + 1, j] or strong_edges[i - 1, j] or
+                         strong_edges[i, j + 1] or strong_edges[i, j - 1] or
+                         strong_edges[i + 1, j + 1] or strong_edges[i - 1, j - 1] or
+                         strong_edges[i - 1, j + 1] or strong_edges[i + 1, j - 1])):
+                        output_image[i, j] = 255
+
+        return output_image
+
 
     #Theo dõi và gọi hàm
     kernel_size_var.trace_add("write", canny_image)
@@ -278,6 +371,8 @@ def main():
     labelImage2.place(relx=0.75, rely=0.35, anchor='center')
     frameImage2 = tk.Frame(frame3, width=400, height=300, bg='#fff')
     frameImage2.place(relx=0.75,rely=0.67, anchor='center')
+    labelImage0_output0 = tk.Label(frameImage2)
+    labelImage0_output0.place(relwidth=1, relheight=1)
 
     # Thiết kế Frame 4
     labelImg = tk.Label(frame4, image=photo)
@@ -302,9 +397,10 @@ def main():
     labelCamera2 = tk.Label(frame4, text="Camera đã chỉnh", font=('Arial', 16, 'bold'), bg='#c8d3e0', fg='#007865')
     labelCamera2.place(relx=0.5, rely=0.3, anchor='center')
     frameCamera2 = tk.Frame(frame4, width=500, height=350, bg='#fff')
-    frameCamera2.place(relx=0.5,rely=0.65, anchor='center')
+    frameCamera2.place(relx=0.5, rely=0.65, anchor='center')
     labelCamera22 = tk.Label(frameCamera2)
     labelCamera22.place(relwidth=1, relheight=1)
+
 
     # Thiết kế Frame 5
     labelImg = tk.Label(frame5, image=photo)
@@ -403,6 +499,17 @@ def main():
     label1 = tk.Label(frame7, text="BƯỚC 3", font=('Arial', 20, 'bold'), bg='#CFE1E4', fg='#007865')
     label1.place(relx=0.5, rely=0.15, anchor='center')
 
+    label1 = tk.Label(frame7, text="Loại bỏ các giá trị không phải cực đại với non-maxima", font=('Arial', 17, 'bold'), bg='#D3DCE7',
+                      fg='#296958')
+    label1.place(relx=0.5, rely=0.23, anchor='center')
+
+    label2 = tk.Label(
+        frame7,
+        text="Bước này giúp lọc bỏ các điểm không quan trọng ,giữ lại điểm thực sự đại diện cho cạnh chính, bỏ chi tiết thừa",
+        font=('Arial', 15, 'normal'), bg='#C4D4DD', fg='#296958', wraplength=620, justify='center'
+    )
+    label2.place(relx=0.2, rely=0.3, anchor='nw')
+
     button1 = tk.Button(frame7, text="Quay lại", command=lambda: show_frame(frame3), bg='#fff', fg='#007865',
                         font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
@@ -416,16 +523,16 @@ def main():
 
     frameImage1 = tk.Frame(frame7, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage1_input3 = tk.Label(frameImage1)
-    labelImage1_input3.place(relwidth=1, relheight=1)
+    labelImage3_input3 = tk.Label(frameImage1)
+    labelImage3_input3.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame7, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
 
     frameImage2 = tk.Frame(frame7, width=350, height=250, bg='#fff')
     frameImage2.place(relx=0.55, rely=0.53, anchor='nw')
-    labelImage22 = tk.Label(frameImage2)
-    labelImage22.place(relwidth=1, relheight=1)
+    labelImage4_output3 = tk.Label(frameImage2)
+    labelImage4_output3.place(relwidth=1, relheight=1)
 
     # Thiết kế Frame 8
     labelImg = tk.Label(frame8, image=photo)
@@ -438,6 +545,18 @@ def main():
     label2 = tk.Label(frame8, text="BƯỚC 4", font=('Arial', 20, 'bold'), bg='#CFE1E4', fg='#007865')
     label2.place(relx=0.5, rely=0.15, anchor='center')
 
+    label1 = tk.Label(frame8, text="Phân loại các cạnh trong ảnh thành mạnh và yếu với ngưỡng kép", font=('Arial', 17, 'bold'),
+                      bg='#D3DCE7',
+                      fg='#296958')
+    label1.place(relx=0.5, rely=0.23, anchor='center')
+
+    label2 = tk.Label(
+        frame8,
+        text="Bước này giúp phân loại các cạnh trong ảnh một cách hiệu quả, củng cố các cạnh yếu và nâng cao chất lượng của kết quả phân đoạn.",
+        font=('Arial', 15, 'normal'), bg='#C4D4DD', fg='#296958', wraplength=620, justify='center'
+    )
+    label2.place(relx=0.2, rely=0.3, anchor='nw')
+
     button1 = tk.Button(frame8, text="Quay lại", command=lambda: show_frame(frame3), bg='#fff', fg='#007865',
                         font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
@@ -448,16 +567,16 @@ def main():
 
     frameImage1 = tk.Frame(frame8, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
-    labelImage1_input4 = tk.Label(frameImage1)
-    labelImage1_input4.place(relwidth=1, relheight=1)
+    labelImage4_input4 = tk.Label(frameImage1)
+    labelImage4_input4.place(relwidth=1, relheight=1)
 
     labelright = tk.Label(frame8, image=right_icon, compound='left', relief='flat', borderwidth=0, padx=10)
     labelright.place(relx=0.5, rely=0.75, anchor='center')
 
     frameImage2 = tk.Frame(frame8, width=350, height=250, bg='#fff')
     frameImage2.place(relx=0.55, rely=0.53, anchor='nw')
-    labelImage22 = tk.Label(frameImage2)
-    labelImage22.place(relwidth=1, relheight=1)
+    labelImage5_output4 = tk.Label(frameImage2)
+    labelImage5_output4.place(relwidth=1, relheight=1)
 
     # Thiết kế Frame 9
     labelImg = tk.Label(frame9, image=photo)
