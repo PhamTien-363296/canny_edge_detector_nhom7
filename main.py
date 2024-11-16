@@ -22,6 +22,13 @@ def main():
     kernel_size_var_cam = tk.StringVar(value=str(default_kernel_size))
     sigma_var_cam = tk.StringVar(value=str(default_sigma))
 
+    default_high_threshold = 95
+    default_low_threshold = 0.4
+    high_threshold_var = tk.StringVar(value=str(default_high_threshold))
+    low_threshold_var = tk.StringVar(value=str(default_low_threshold))
+    high_threshold_var_cam = tk.StringVar(value=str(default_high_threshold))
+    low_threshold_var_cam = tk.StringVar(value=str(default_low_threshold))
+
     def show_frame(frame):
         frame.tkraise()
 
@@ -82,32 +89,38 @@ def main():
         main.protocol("WM_DELETE_WINDOW", on_closing)
 
     def canny_camera(*args):
+        #Bước 1
         kernel_size = int(kernel_size_var_cam.get() or default_kernel_size)
         sigma = float(sigma_var_cam.get() or default_sigma)
+        print('Kernel_size: ' + str(kernel_size) + ' Sigma: ' + str(sigma))
 
         gaussian_output = gaussian_smoothing(gray, kernel_size=kernel_size, sigma=sigma)
 
+        #Bước 2
         gradient_magnitude, gradient_angle = gradient_operation(gaussian_output)
 
+        #Bước 3
         suppressed_arr = non_maxima_suppression(gradient_magnitude, gradient_angle)
 
-        output_image = double_thresholding(suppressed_arr)
+        #Bước 4
+        high_threshold = int(high_threshold_var_cam.get() or default_high_threshold)
+        low_threshold = float(low_threshold_var_cam.get() or default_low_threshold)
+        print('High_threshold: ' + str(high_threshold) + ' Low_threshold: ' + str(low_threshold))
+        output_image = double_thresholding(suppressed_arr, high_threshold, low_threshold)
 
         return output_image
 
     def canny_image(*args):
-        # Bước 1:
+        #Bước 1:
         kernel_size = int(kernel_size_var.get() or default_kernel_size)
         sigma = float(sigma_var.get() or default_sigma)
+        print('Kernel_size: ' + str(kernel_size) + ' Sigma: ' + str(sigma))
 
         gaussian_output = gaussian_smoothing(gray_np, kernel_size=kernel_size, sigma=sigma)
-        print('kernel_size: ' + str(kernel_size) + ' sigma: ' + str(sigma))
 
-        #---Xử lý hiển thị---
         gaussian_image = Image.fromarray(np.uint8(gaussian_output))
         photogaussian = ImageTk.PhotoImage(gaussian_image)
 
-        #---Cập nhật hình ảnh trên giao diện--
         labelImage1_input1.config(image=img_tk)
         labelImage1_input1.image = img_tk
         labelImage2_output1.config(image=photogaussian)
@@ -116,7 +129,6 @@ def main():
         #Bước 2
         gradient_magnitude, gradient_angle = gradient_operation(gaussian_output)
 
-        #Xử lý hình ảnh hiển thị
         gradient_magnitude_image = Image.fromarray(np.uint8(gradient_magnitude))
         photogradient_magnitude = ImageTk.PhotoImage(gradient_magnitude_image)
 
@@ -129,7 +141,6 @@ def main():
         #Bước 3
         suppressed_arr =  non_maxima_suppression(gradient_magnitude, gradient_angle)
 
-        # Xử lý hình ảnh hiển thị
         non_maxima_image = Image.fromarray(np.uint8(suppressed_arr))
         photonon_maxima = ImageTk.PhotoImage(non_maxima_image)
 
@@ -140,9 +151,13 @@ def main():
         labelImage4_output3.image = photonon_maxima
 
         #Bước 4
-        output_image = double_thresholding(suppressed_arr)
+        high_threshold = int(high_threshold_var.get() or default_high_threshold)
+        low_threshold = float(low_threshold_var.get() or default_low_threshold)
 
-        #Xử lý hình ảnh hiển thị
+        print('High_threshold: ' + str(high_threshold) + ' Low_threshold: ' + str(low_threshold))
+
+        output_image = double_thresholding(suppressed_arr, high_threshold, low_threshold)
+
         double_thresholding_image = Image.fromarray(np.uint8(output_image))
         photo_double_thresholding = ImageTk.PhotoImage(double_thresholding_image)
 
@@ -170,7 +185,7 @@ def main():
 
         return convolve2d(img, gaussian_kernel, mode='same', boundary='symm')
 
-    #Bước 2
+    #Bước 2:
     def gradient_operation(smoothed_image):
         sobel_gx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
         sobel_gy = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]])
@@ -184,6 +199,7 @@ def main():
 
         return gradient_magnitude, gradient_angle
 
+    #Bước 3:
     def non_maxima_suppression(gradient_mag, gradient_angle):
         image_height, image_width = gradient_mag.shape
         suppressed_arr = np.zeros((image_height, image_width), dtype='int')
@@ -215,10 +231,11 @@ def main():
 
         return suppressed_arr
 
-    def double_thresholding(suppressed_image):
+    #Bước 4:
+    def double_thresholding(suppressed_image, high, low):
 
-        high_threshold = np.percentile(suppressed_image, 95)
-        low_threshold = high_threshold * 0.4  # Giảm ngưỡng thấp
+        high_threshold = np.percentile(suppressed_image, high)
+        low_threshold = high_threshold * low  # Giảm ngưỡng thấp
 
         output_image = np.zeros_like(suppressed_image)
         strong_edges = suppressed_image >= high_threshold
@@ -242,32 +259,18 @@ def main():
     #Theo dõi và gọi hàm
     kernel_size_var.trace_add("write", canny_image)
     sigma_var.trace_add("write", canny_image)
+    high_threshold_var.trace_add("write", canny_image)
+    low_threshold_var.trace_add("write", canny_image)
 
     kernel_size_var_cam.trace_add("write", canny_camera)
     sigma_var_cam.trace_add("write", canny_camera)
+    high_threshold_var_cam.trace_add("write", canny_camera)
+    low_threshold_var_cam.trace_add("write", canny_camera)
 
     def luu_image():
-        kernel_size = int(kernel_size_var.get() or default_kernel_size)
-        sigma = float(sigma_var.get() or default_sigma)
-
-        print("kernel_size: ", kernel_size)
-        print("sigma1: ", sigma)
-
-        kernel_size_var.set(str(kernel_size))
-        sigma_var.set(str(sigma))
-
         show_frame(frame3)
 
     def luu_camera():
-        kernel_size = int(kernel_size_var_cam.get() or default_kernel_size)
-        sigma = float(sigma_var_cam.get() or default_sigma)
-
-        print("kernel_size: ", kernel_size)
-        print("sigma1: ", sigma)
-
-        kernel_size_var_cam.set(str(kernel_size))
-        sigma_var_cam.set(str(sigma))
-
         show_frame(frame4)
 
     frame1 = tk.Frame(main, width=1000, height=600, bg='#f0f0f0')
@@ -318,6 +321,9 @@ def main():
 
     labelImglg = tk.Label(frame2, image=photolg, bg='#BFDDE5')
     labelImglg.place(relx=0, rely=0, anchor='nw')
+
+    button1 = tk.Button(frame2, text="Quay lại", command=lambda: show_frame(frame1), bg='#fff', fg='#007865', font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
+    button1.place(relx=0.1, rely=0.05, anchor='nw')
 
     label1 = tk.Label(frame2, text="Bạn muốn chỉnh sửa nhận dạng đường biên bằng cách nào?", font=('Arial', 20, 'bold'), bg='#c5d1dd', fg='#007865')
     label1.place(relx=0.5, rely=0.45, anchor='center')
@@ -424,6 +430,18 @@ def main():
 
     button1 = tk.Button(frame5, text="Quay lại", command=lambda: show_frame(frame3), bg='#fff', fg='#007865', font=('Arial', 10, 'normal'), width=10, height=1, relief='flat', borderwidth=0)
     button1.place(relx=0.05, rely=0.05, anchor='nw')
+
+    label6 = tk.Label(frame5, text="Kernel Size: ", font=('Arial', 12, 'bold'), bg='#D2D7E1', fg='#007865')
+    label6.place(relx=0.1, rely=0.43, anchor='nw')
+    entry3 = tk.Entry(frame5, textvariable=kernel_size_var, font=('Arial', 12, 'normal'), fg='#007865', width=7,
+                      justify='center')
+    entry3.place(relx=0.2, rely=0.43, anchor='nw')
+
+    label7 = tk.Label(frame5, text="Sigma: ", font=('Arial', 12, 'bold'), bg='#D2D7E1', fg='#007865')
+    label7.place(relx=0.34, rely=0.43, anchor='nw')
+    entry4 = tk.Entry(frame5, textvariable=sigma_var, font=('Arial', 12, 'normal'), fg='#007865', width=7,
+                      justify='center')
+    entry4.place(relx=0.4, rely=0.43, anchor='nw')
 
     button2 = tk.Button(frame5, text="Bước tiếp theo", command=lambda: show_frame(frame6), bg='#007865', fg='#fff', font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.84, rely=0.3, anchor='nw')
@@ -565,6 +583,17 @@ def main():
                         font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
     button2.place(relx=0.04, rely=0.3, anchor='nw')
 
+
+    label6 = tk.Label(frame8, text="High Threshold: ", font=('Arial', 12, 'bold'), bg='#D2D7E1', fg='#007865')
+    label6.place(relx=0.1, rely=0.43, anchor='nw')
+    entry3 = tk.Entry(frame8,textvariable = high_threshold_var, font=('Arial',12,'normal'), fg='#007865', width=7, justify='center')
+    entry3.place(relx=0.23, rely=0.43, anchor='nw')
+
+    label7 = tk.Label(frame8, text="Low Threshold: ", font=('Arial', 12, 'bold'), bg='#D2D7E1', fg='#007865')
+    label7.place(relx=0.35, rely=0.43, anchor='nw')
+    entry4 = tk.Entry(frame8,textvariable = low_threshold_var, font=('Arial',12,'normal'), fg='#007865', width=7, justify='center')
+    entry4.place(relx=0.48, rely=0.43, anchor='nw')
+
     frameImage1 = tk.Frame(frame8, width=350, height=250, bg='#fff')
     frameImage1.place(relx=0.1, rely=0.53, anchor='nw')
     labelImage4_input4 = tk.Label(frameImage1)
@@ -599,9 +628,24 @@ def main():
     entry2 = tk.Entry(frame9,textvariable = sigma_var, font=('Arial',15,'normal'), fg='#007865' ,width=10, justify='center')
     entry2.place(relx=0.7, rely=0.22, anchor='center')
 
+    label5 = tk.Label(frame9, text="Bước 4", font=('Arial', 20, 'bold'), bg='#CFE1E4', fg='#007865')
+    label5.place(relx=0.5, rely=0.35, anchor='center')
+
+    label6 = tk.Label(frame9, text="High Threshold: ", font=('Arial', 15, 'bold'), bg='#D2D7E1', fg='#007865')
+    label6.place(relx=0.3, rely=0.42, anchor='center')
+    entry3 = tk.Entry(frame9, textvariable=high_threshold_var, font=('Arial', 15, 'normal'), fg='#007865', width=10,
+                      justify='center')
+    entry3.place(relx=0.425, rely=0.42, anchor='center')
+
+    label7 = tk.Label(frame9, text="Low Threshold: ", font=('Arial', 15, 'bold'), bg='#D2D7E1', fg='#007865')
+    label7.place(relx=0.6, rely=0.42, anchor='center')
+    entry4 = tk.Entry(frame9, textvariable=low_threshold_var, font=('Arial', 15, 'normal'), fg='#007865', width=10,
+                      justify='center')
+    entry4.place(relx=0.73, rely=0.42, anchor='center')
+
     button2 = tk.Button(frame9, text="LƯU", command=luu_image, bg='#007865', fg='#fff',
                         font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
-    button2.place(relx=0.5, rely=0.45, anchor='center')
+    button2.place(relx=0.5, rely=0.6, anchor='center')
 
     # Thiết kế Frame 10
     labelImg = tk.Label(frame10, image=photo)
@@ -624,9 +668,24 @@ def main():
     entry2 = tk.Entry(frame10,textvariable = sigma_var_cam, font=('Arial',15,'normal'), fg='#007865' ,width=10, justify='center')
     entry2.place(relx=0.7, rely=0.22, anchor='center')
 
+    label5 = tk.Label(frame10, text="Bước 4", font=('Arial', 20, 'bold'), bg='#CFE1E4', fg='#007865')
+    label5.place(relx=0.5, rely=0.35, anchor='center')
+
+    label6 = tk.Label(frame10, text="High Threshold: ", font=('Arial', 15, 'bold'), bg='#D2D7E1', fg='#007865')
+    label6.place(relx=0.3, rely=0.42, anchor='center')
+    entry3 = tk.Entry(frame10, textvariable=high_threshold_var_cam, font=('Arial', 15, 'normal'), fg='#007865',
+                      width=10, justify='center')
+    entry3.place(relx=0.425, rely=0.42, anchor='center')
+
+    label7 = tk.Label(frame10, text="Low Threshold: ", font=('Arial', 15, 'bold'), bg='#D2D7E1', fg='#007865')
+    label7.place(relx=0.6, rely=0.42, anchor='center')
+    entry4 = tk.Entry(frame10, textvariable=low_threshold_var_cam, font=('Arial', 15, 'normal'), fg='#007865', width=10,
+                      justify='center')
+    entry4.place(relx=0.73, rely=0.42, anchor='center')
+
     button2 = tk.Button(frame10, text="LƯU", command=luu_camera, bg='#007865', fg='#fff',
                         font=('Arial', 12, 'bold'), width=13, height=2, relief='flat', borderwidth=0)
-    button2.place(relx=0.5, rely=0.45, anchor='center')
+    button2.place(relx=0.5, rely=0.6, anchor='center')
 
     show_frame(frame1)
     main.mainloop()
